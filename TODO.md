@@ -48,7 +48,7 @@ characters per row × 3 rows. Entries are separated by a blank 4th line.
 - Given an unrecognized 3×3 pattern → that digit becomes `?`.
 
 **Files:** `src/parser.rkt`, `tests/test-parser.rkt`
-**Status:** [ ] Not started
+**Status:** [x] Done
 
 ---
 
@@ -65,7 +65,7 @@ where `d1` is the **rightmost** digit. Right-to-left ordering — watch out.
 - Account containing `?` → returns false (illegible, skip checksum).
 
 **Files:** `src/checksum.rkt`, `tests/test-checksum.rkt`
-**Status:** [ ] Not started
+**Status:** [x] Done
 
 ---
 
@@ -87,7 +87,7 @@ where `d1` is the **rightmost** digit. Right-to-left ordering — watch out.
 - Illegible (`?` present) → `<number> ILL`.
 
 **Files:** `src/formatter.rkt`, `tests/test-formatter.rkt`
-**Status:** [ ] Not started
+**Status:** [x] Done
 
 ---
 
@@ -106,7 +106,7 @@ keep original status.
 - Multiple corrections → `<original> AMB ['cand1', 'cand2', …]`.
 
 **Files:** `src/corrector.rkt`, `tests/test-corrector.rkt`
-**Status:** [ ] Not started
+**Status:** [x] Done
 
 ---
 
@@ -120,7 +120,7 @@ keep original status.
 - No file + no stdin → friendly error message.
 
 **Files:** `main.rkt`
-**Status:** [ ] Skeleton in place, needs glue once S1-S3 done.
+**Status:** [x] Done
 
 ---
 
