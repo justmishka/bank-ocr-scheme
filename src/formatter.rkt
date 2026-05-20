@@ -1,27 +1,27 @@
 #lang racket/base
 
 ;; Output formatting.
-;; Input is either:
+;; Input is one of:
 ;;   - a 9-char digit string ("valid" / "ERR" / "ILL"), or
-;;   - a pair (account . list-of-candidates) for the AMB case from corrector.
+;;   - an `ambiguous` struct for the AMB case from corrector.
 
 (require racket/string
-         "checksum.rkt")
+         "checksum.rkt"
+         "corrector.rkt")
 
-(provide format-account)
+(provide format-account
+         illegible?)
 
 (define (illegible? account)
   (for/or ([ch (in-string account)]) (char=? ch #\?)))
 
 (define (format-account result)
   (cond
-    [(pair? result)
-     (define original (car result))
-     (define candidates (cdr result))
+    [(ambiguous? result)
      (format "~a AMB [~a]"
-             original
+             (ambiguous-original result)
              (string-join
-              (map (lambda (c) (format "'~a'" c)) candidates)
+              (map (lambda (c) (format "'~a'" c)) (ambiguous-candidates result))
               ", "))]
     [(illegible? result) (string-append result " ILL")]
     [(valid-checksum? result) result]

@@ -2,28 +2,36 @@
 
 ;; OCR parser — ASCII art (3 lines × 27 chars) → digit string.
 ;; Each digit is a 3×3 block. Unrecognized blocks become "?".
+;;
+;; DIGIT-TABLE is the single source of truth for digit ↔ ASCII pattern.
+;; The parser hashes it for fast lookup; corrector uses the raw list for
+;; Hamming-distance neighbor search.
 
 (require racket/string
          racket/list)
 
-(provide parse-digit
+(provide DIGIT-TABLE
+         parse-digit
          parse-entry
          parse-file
          split-entries
          pad-right)
 
+(define DIGIT-TABLE
+  '(("0" . " _ | ||_|")
+    ("1" . "     |  |")
+    ("2" . " _  _||_ ")
+    ("3" . " _  _| _|")
+    ("4" . "   |_|  |")
+    ("5" . " _ |_  _|")
+    ("6" . " _ |_ |_|")
+    ("7" . " _   |  |")
+    ("8" . " _ |_||_|")
+    ("9" . " _ |_| _|")))
+
 (define DIGIT-PATTERNS
-  (hash
-   (string-append " _ " "| |" "|_|") "0"
-   (string-append "   " "  |" "  |") "1"
-   (string-append " _ " " _|" "|_ ") "2"
-   (string-append " _ " " _|" " _|") "3"
-   (string-append "   " "|_|" "  |") "4"
-   (string-append " _ " "|_ " " _|") "5"
-   (string-append " _ " "|_ " "|_|") "6"
-   (string-append " _ " "  |" "  |") "7"
-   (string-append " _ " "|_|" "|_|") "8"
-   (string-append " _ " "|_|" " _|") "9"))
+  (for/hash ([entry (in-list DIGIT-TABLE)])
+    (values (cdr entry) (car entry))))
 
 (define (pad-right s n)
   (if (< (string-length s) n)
@@ -34,8 +42,8 @@
   (hash-ref DIGIT-PATTERNS (string-append top mid bot) "?"))
 
 (define (parse-entry lines)
-  (unless (>= (length lines) 3)
-    (error 'parse-entry "Entry must have at least 3 lines, got ~a" (length lines)))
+  (unless (= (length lines) 3)
+    (error 'parse-entry "Entry must have exactly 3 lines, got ~a" (length lines)))
   (define top (pad-right (list-ref lines 0) 27))
   (define mid (pad-right (list-ref lines 1) 27))
   (define bot (pad-right (list-ref lines 2) 27))
@@ -52,23 +60,40 @@
     [(equal? "" (last lines)) (strip-trailing-empty (drop-right lines 1))]
     [else lines]))
 
-;; Returns list of 3-line entries (each a list of 3 strings, padded to 27).
-;; Each entry block is 4 lines in the source: 3 digit lines + 1 separator.
-;; We use strict 4-line grouping because digit "1" has an all-spaces top line
-;; that would otherwise be mistaken for a separator.
+(define (blank-line? s)
+  (zero? (string-length (string-trim s))))
+
+;; Returns list of 3-line entries (each list of 3 padded-to-27 strings).
+;; Source format: each entry is 4 lines (3 digit lines + 1 blank separator).
+;; The blank separator after the final entry is optional.
+;; Strict 4-line grouping is required because digit "1"'s top row is all
+;; spaces, so we cannot use blank-line detection to split.
 (define (split-entries content)
   (cond
     [(or (not content) (zero? (string-length (string-trim content)))) '()]
     [else
      (define lines (strip-trailing-empty (string-split content "\n" #:trim? #f)))
+     (define total (length lines))
      (let loop ([i 0] [acc '()])
        (cond
-         [(> (+ i 3) (length lines)) (reverse acc)]
+         [(>= i total) (reverse acc)]
+         [(> (+ i 3) total)
+          (error 'split-entries
+                 "Incomplete entry starting at line ~a: need 3 digit lines, got ~a remaining"
+                 (add1 i)
+                 (- total i))]
          [else
           (define entry
             (list (pad-right (list-ref lines i) 27)
                   (pad-right (list-ref lines (+ i 1)) 27)
                   (pad-right (list-ref lines (+ i 2)) 27)))
+          (define sep-idx (+ i 3))
+          (when (< sep-idx total)
+            (unless (blank-line? (list-ref lines sep-idx))
+              (error 'split-entries
+                     "Missing blank separator after entry ending at line ~a (got: ~v)"
+                     (+ i 3)
+                     (list-ref lines sep-idx))))
           (loop (+ i 4) (cons entry acc))]))]))
 
 (define (parse-file content)

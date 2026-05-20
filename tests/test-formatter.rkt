@@ -1,7 +1,8 @@
 #lang racket/base
 
 (require rackunit
-         "../src/formatter.rkt")
+         "../src/formatter.rkt"
+         "../src/corrector.rkt")
 
 (test-case "formatter: valid account → bare number"
   (check-equal? (format-account "345882865") "345882865")
@@ -16,12 +17,11 @@
   (check-equal? (format-account "86110??36") "86110??36 ILL")
   (check-equal? (format-account "?????????") "????????? ILL"))
 
-(test-case "formatter: AMB case (pair input)"
-  (check-equal? (format-account (cons "888888888"
-                                      (list "888886888" "888888880")))
-                "888888888 AMB ['888886888', '888888880']"))
+(test-case "formatter: AMB case via ambiguous struct"
+  (check-equal? (format-account (ambiguous "888888888"
+                                           '("888886888" "888888880" "888888988")))
+                "888888888 AMB ['888886888', '888888880', '888888988']"))
 
 (test-case "formatter: AMB with single candidate (edge case)"
-  ;; Realistically corrector wouldn't return single via pair, but format it cleanly anyway.
-  (check-equal? (format-account (cons "123456789" (list "123456780")))
+  (check-equal? (format-account (ambiguous "123456789" '("123456780")))
                 "123456789 AMB ['123456780']"))

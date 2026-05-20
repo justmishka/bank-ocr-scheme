@@ -15,7 +15,11 @@ against a checksum, and prints each account with its status:
 345882865
 664371495 ERR
 86110??36 ILL
+888888888 AMB ['888886888', '888888880', '888888988']
 ```
+
+`AMB` lines come from the error-correction pass: when an `ERR` or `ILL` number
+has more than one valid single-OCR-char fix, all candidates are listed.
 
 ## Requirements
 
