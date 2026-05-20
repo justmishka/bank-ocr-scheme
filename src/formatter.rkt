@@ -1,16 +1,28 @@
 #lang racket/base
 
-;; Output formatting for parsed account numbers.
-;; Valid: "123456789"
-;; Invalid checksum: "664371495 ERR"
-;; Illegible: "86110??36 ILL"
-;; Ambiguous (Story 4): "123456789 AMB ['123456789', '723456789']"
-;;
-;; TODO: Story 3 — implement format-account
+;; Output formatting.
+;; Input is either:
+;;   - a 9-char digit string ("valid" / "ERR" / "ILL"), or
+;;   - a pair (account . list-of-candidates) for the AMB case from corrector.
+
+(require racket/string
+         "checksum.rkt")
 
 (provide format-account)
 
-(define (format-account account)
-  ;; STUB: takes 9-char digit string (or symbolic representation for AMB),
-  ;; returns formatted line per spec above.
-  (error 'format-account "not implemented"))
+(define (illegible? account)
+  (for/or ([ch (in-string account)]) (char=? ch #\?)))
+
+(define (format-account result)
+  (cond
+    [(pair? result)
+     (define original (car result))
+     (define candidates (cdr result))
+     (format "~a AMB [~a]"
+             original
+             (string-join
+              (map (lambda (c) (format "'~a'" c)) candidates)
+              ", "))]
+    [(illegible? result) (string-append result " ILL")]
+    [(valid-checksum? result) result]
+    [else (string-append result " ERR")]))

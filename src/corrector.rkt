@@ -1,18 +1,67 @@
 #lang racket/base
 
-;; Error correction (Story 4 — stretch).
-;; For ERR or ILL accounts, try modifying exactly one pipe or underscore.
-;; - One valid match  → use it
-;; - Multiple matches → mark AMB with list of possibilities
-;; - No valid match   → keep as ILL
+;; Error correction. For each digit position, find every valid digit whose
+;; 3×3 pattern differs from the OCR pattern at that position by exactly one
+;; character. Substitute and check the resulting account's checksum.
 ;;
-;; TODO: Story 4 — implement correct-account
+;; Returns:
+;;   - a 9-char string if exactly one valid correction exists,
+;;   - (cons original-account candidates-list) if multiple corrections valid,
+;;   - #f if no correction makes the checksum valid.
+
+(require racket/list
+         "parser.rkt"
+         "checksum.rkt")
 
 (provide correct-account)
 
-(define (correct-account entry-lines)
-  ;; STUB: takes raw 3-line OCR entry, returns either:
-  ;;  - corrected 9-char digit string, or
-  ;;  - (cons 'ambiguous (list-of-candidates)), or
-  ;;  - original parse with ILL/ERR status preserved
-  (error 'correct-account "not implemented"))
+(define DIGIT-PATTERNS-LIST
+  '(("0" . " _ | ||_|")
+    ("1" . "     |  |")
+    ("2" . " _  _||_ ")
+    ("3" . " _  _| _|")
+    ("4" . "   |_|  |")
+    ("5" . " _ |_  _|")
+    ("6" . " _ |_ |_|")
+    ("7" . " _   |  |")
+    ("8" . " _ |_||_|")
+    ("9" . " _ |_| _|")))
+
+(define (hamming-distance s1 s2)
+  (for/sum ([c1 (in-string s1)]
+            [c2 (in-string s2)])
+    (if (char=? c1 c2) 0 1)))
+
+(define (digit-pattern-at entry-lines pos)
+  (define top (pad-right (list-ref entry-lines 0) 27))
+  (define mid (pad-right (list-ref entry-lines 1) 27))
+  (define bot (pad-right (list-ref entry-lines 2) 27))
+  (define start (* pos 3))
+  (string-append (substring top start (+ start 3))
+                 (substring mid start (+ start 3))
+                 (substring bot start (+ start 3))))
+
+(define (neighbors-for-pattern pattern)
+  ;; Digit candidates whose pattern is exactly 1 OCR-char away from `pattern`.
+  ;; A distance-0 match (the digit itself) is naturally excluded.
+  (for/list ([entry (in-list DIGIT-PATTERNS-LIST)]
+             #:when (= 1 (hamming-distance pattern (cdr entry))))
+    (car entry)))
+
+(define (string-set s pos new-ch)
+  (string-append (substring s 0 pos)
+                 (string new-ch)
+                 (substring s (add1 pos))))
+
+(define (correct-account entry-lines parsed)
+  (define candidate-accounts
+    (for*/list ([pos (in-range 9)]
+                [new-digit (in-list (neighbors-for-pattern
+                                     (digit-pattern-at entry-lines pos)))])
+      (string-set parsed pos (string-ref new-digit 0))))
+  (define valid (remove-duplicates
+                 (filter valid-checksum? candidate-accounts)))
+  (cond
+    [(null? valid) #f]
+    [(= 1 (length valid)) (car valid)]
+    [else (cons parsed (sort valid string<?))]))
